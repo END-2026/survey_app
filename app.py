@@ -6,9 +6,6 @@ import plotly.express as px
 from datetime import datetime
 import os
 
-# -------------------------------
-# 1. Инициализация Firebase
-# -------------------------------
 KEY_PATH = os.getenv("FIREBASE_KEY", "serviceAccountKey.json")
 
 if not firebase_admin._apps:
@@ -20,9 +17,6 @@ if not firebase_admin._apps:
 
 db = firestore.client()
 
-# -------------------------------
-# 2. Настройка страницы
-# -------------------------------
 st.set_page_config(
     page_title="Анонимные отзывы — Опрос",
     page_icon="📝",
@@ -35,9 +29,6 @@ st.caption(
     "Данные собираются анонимно в учебных целях."
 )
 
-# -------------------------------
-# 3. Форма опроса
-# -------------------------------
 with st.form("survey_form"):
     st.subheader("👤 О вас")
 
@@ -75,9 +66,6 @@ with st.form("survey_form"):
 
     submitted = st.form_submit_button("📨 Отправить ответ")
 
-# -------------------------------
-# 4. Сохранение в Firebase
-# -------------------------------
 if submitted:
     doc_data = {
         "age": int(age),
@@ -96,9 +84,6 @@ if submitted:
     except Exception as e:
         st.error(f"❌ Ошибка сохранения: {e}")
 
-# -------------------------------
-# 5. Аналитика (режим преподавателя)
-# -------------------------------
 st.markdown("---")
 if st.checkbox("📊 Показать аналитику (для преподавателя)"):
     try:
