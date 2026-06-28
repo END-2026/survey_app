@@ -7,10 +7,6 @@ from datetime import datetime
 import os
 import json
 
-# -------------------------------
-# 1. ИНИЦИАЛИЗАЦИЯ FIREBASE (с поддержкой secrets.toml)
-# -------------------------------
-
 def init_firebase():
     """Инициализация Firebase с поддержкой secrets.toml и локального файла"""
     
@@ -21,7 +17,6 @@ def init_firebase():
     try:
         # 1. Пробуем получить ключ из secrets.toml (Streamlit Cloud или локально)
         if hasattr(st, 'secrets') and 'FIREBASE_KEY' in st.secrets:
-            st.info("🔑 Использую ключ из secrets.toml")
             firebase_creds = st.secrets["FIREBASE_KEY"]
             
             # Если секрет - словарь
@@ -49,7 +44,6 @@ def init_firebase():
                 st.stop()
         
         firebase_admin.initialize_app(cred)
-        st.success("✅ Firebase успешно подключен!")
         return firebase_admin.get_app()
         
     except Exception as e:
@@ -59,10 +53,6 @@ def init_firebase():
 # Инициализация Firebase
 init_firebase()
 db = firestore.client()
-
-# -------------------------------
-# 2. НАСТРОЙКА СТРАНИЦЫ
-# -------------------------------
 
 st.set_page_config(
     page_title="Survey: Anonymous Reviews",
@@ -74,10 +64,6 @@ st.markdown(
     "**Topic:** Attitude towards anonymous reviews on the internet. "
     "Fill out the form. Data is saved to the cloud."
 )
-
-# -------------------------------
-# 3. ФОРМА ОПРОСА
-# -------------------------------
 
 with st.form("survey"):
     col1, col2 = st.columns(2)
@@ -110,10 +96,6 @@ with st.form("survey"):
 
     submit = st.form_submit_button("Submit")
 
-# -------------------------------
-# 4. СОХРАНЕНИЕ ДАННЫХ
-# -------------------------------
-
 if submit:
     if not platforms:
         st.warning("Please select at least one platform!")
@@ -135,10 +117,6 @@ if submit:
             st.balloons()
         except Exception as e:
             st.error(f"Error: {e}")
-
-# -------------------------------
-# 5. АНАЛИТИКА
-# -------------------------------
 
 st.markdown("---")
 
