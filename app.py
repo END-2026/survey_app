@@ -17,6 +17,7 @@ def init_firebase():
     try:
         # 1. Пробуем получить ключ из secrets.toml (Streamlit Cloud или локально)
         if hasattr(st, 'secrets') and 'FIREBASE_KEY' in st.secrets:
+            st.info("🔑 Использую ключ из secrets.toml")
             firebase_creds = st.secrets["FIREBASE_KEY"]
             
             # Если секрет - словарь
@@ -44,6 +45,7 @@ def init_firebase():
                 st.stop()
         
         firebase_admin.initialize_app(cred)
+        st.success("✅ Firebase успешно подключен!")
         return firebase_admin.get_app()
         
     except Exception as e:
@@ -55,50 +57,82 @@ init_firebase()
 db = firestore.client()
 
 st.set_page_config(
-    page_title="Survey: Anonymous Reviews",
+    page_title="Опрос: Анонимные отзывы",
+    page_icon="📝",
     layout="wide"
 )
 
-st.title("📝 Single-Page Survey: Anonymous Reviews")
+st.title("📝 Опрос: Отношение к анонимным отзывам в сети")
 st.markdown(
-    "**Topic:** Attitude towards anonymous reviews on the internet. "
-    "Fill out the form. Data is saved to the cloud."
+    "**Тема:** Исследование достоверности, влияния и модерации анонимных отзывов. "
+    "Данные собираются анонимно в учебных целях."
 )
 
 with st.form("survey"):
+    st.subheader("👤 О вас")
+    
     col1, col2 = st.columns(2)
 
     with col1:
-        age = st.number_input("Your age", min_value=14, max_value=80, step=1)
-        gender = st.radio("Gender", ["Male", "Female", "Prefer not to say"])
-        trust = st.slider("Trust in anonymous reviews (1-10)", 1, 10, 5)
+        age = st.number_input(
+            "Ваш возраст",
+            min_value=14,
+            max_value=80,
+            step=1,
+            help="Укажите ваш возраст от 14 до 80 лет"
+        )
+        gender = st.radio(
+            "Ваш пол",
+            ["Мужской", "Женский", "Предпочитаю не указывать"]
+        )
 
     with col2:
+        trust = st.slider(
+            "Насколько вы доверяете анонимным отзывам?",
+            min_value=1,
+            max_value=10,
+            value=5,
+            help="1 — совсем не доверяю, 10 — полностью доверяю"
+        )
+
+    st.subheader("📌 Отношение к анонимным отзывам")
+
+    col3, col4 = st.columns(2)
+
+    with col3:
         influence = st.radio(
-            "Do anonymous reviews influence your decisions?",
-            ["Yes, always", "Sometimes", "Rarely", "Never"]
+            "Влияют ли анонимные отзывы на ваше решение о покупке/выборе?",
+            ["Да, всегда", "Иногда", "Редко", "Никогда"]
         )
+        
         faced_fake = st.radio(
-            "Have you encountered fake anonymous reviews?",
-            ["Yes, often", "Yes, sometimes", "Rarely", "Never"]
+            "Сталкивались ли вы с заведомо ложными анонимными отзывами?",
+            ["Да, часто", "Да, иногда", "Редко", "Никогда"]
         )
+
+    with col4:
         moderation = st.selectbox(
-            "Need for moderation of anonymous reviews?",
-            ["Mandatory", "Desirable", "Not necessary", "Hard to say"]
+            "Как вы оцениваете необходимость модерации анонимных отзывов?",
+            ["Обязательна", "Желательна", "Необязательна", "Затрудняюсь ответить"]
         )
 
     platforms = st.multiselect(
-        "Platforms where you read reviews:",
-        ["Yandex.Market", "Ozon", "Wildberries", "Google Maps", "2GIS", "Otzovik", "Other"]
+        "На каких платформах вы чаще всего читаете отзывы?",
+        ["Яндекс.Маркет", "Ozon", "Wildberries", "Google Maps", "2ГИС", "Отзовик", "Другое"]
     )
 
-    comment = st.text_area("Additional comments or examples")
+    comment = st.text_area(
+        "Дополнительные комментарии или примеры",
+        placeholder="Расскажите о вашем опыте с анонимными отзывами..."
+    )
 
-    submit = st.form_submit_button("Submit")
+    submit = st.form_submit_button("📨 Отправить ответ")
 
 if submit:
     if not platforms:
-        st.warning("Please select at least one platform!")
+        st.warning("⚠️ Пожалуйста, выберите хотя бы одну платформу!")
+    elif age < 14 or age > 80:
+        st.warning("⚠️ Пожалуйста, укажите корректный возраст (14-80)")
     else:
         record = {
             "age": int(age),
@@ -113,88 +147,121 @@ if submit:
         }
         try:
             db.collection("responses_46").add(record)
-            st.success("Response saved! Thank you!")
+            st.success("✅ Спасибо! Ваш ответ сохранён.")
             st.balloons()
         except Exception as e:
-            st.error(f"Error: {e}")
+            st.error(f"❌ Ошибка сохранения: {e}")
 
 st.markdown("---")
 
-if st.checkbox("Analytics Dashboard (Instructor View)"):
-    try:
-        docs = db.collection("responses_46").stream()
-        data = [doc.to_dict() for doc in docs]
+if st.checkbox("📊 Показать аналитику (для преподавателя)"):
+    with st.spinner("Загрузка данных..."):
+        try:
+            docs = db.collection("responses_46").stream()
+            data = [doc.to_dict() for doc in docs]
 
-        if not data:
-            st.info("No responses yet.")
-        else:
-            df = pd.DataFrame(data)
-            df["timestamp"] = pd.to_datetime(df["timestamp"])
+            if not data:
+                st.info("📭 Пока нет ни одного ответа.")
+                st.info("Заполните форму выше, чтобы увидеть аналитику.")
+            else:
+                df = pd.DataFrame(data)
+                df["timestamp"] = pd.to_datetime(df["timestamp"])
 
-            st.subheader("Data Summary")
-            st.dataframe(df.head(10))
+                # Перевод колонок для отображения
+                column_names = {
+                    "age": "Возраст",
+                    "gender": "Пол",
+                    "trust": "Доверие",
+                    "influence": "Влияние",
+                    "faced_fake": "Сталкивались с фейками",
+                    "moderation": "Модерация",
+                    "platforms": "Платформы",
+                    "comment": "Комментарий",
+                    "timestamp": "Время отправки"
+                }
+                df_ru = df.rename(columns=column_names)
 
-            # 1. Доверие к отзывам
-            st.subheader("Trust Distribution")
-            fig1 = px.histogram(
-                df,
-                x="trust",
-                nbins=10,
-                title="Trust in Anonymous Reviews (1-10)",
-                labels={"trust": "Trust Level"}
-            )
-            st.plotly_chart(fig1, use_container_width=True)
+                st.subheader("📋 Сводка по данным")
+                st.write(f"**Всего ответов:** {len(df)}")
+                st.dataframe(df_ru.head(10), use_container_width=True)
 
-            # 2. Влияние отзывов
-            st.subheader("Influence of Reviews on Decisions")
-            influence_counts = df["influence"].value_counts().reset_index()
-            influence_counts.columns = ["Influence", "Count"]
-            fig2 = px.bar(
-                influence_counts,
-                x="Influence",
-                y="Count",
-                title="Impact of Anonymous Reviews",
-                color="Influence"
-            )
-            st.plotly_chart(fig2, use_container_width=True)
+                # 1. Распределение доверия
+                st.subheader("📊 Уровень доверия к анонимным отзывам")
+                fig1 = px.histogram(
+                    df,
+                    x="trust",
+                    nbins=10,
+                    title="Распределение уровня доверия (1–10)",
+                    labels={"trust": "Уровень доверия", "count": "Количество респондентов"},
+                    color_discrete_sequence=["#4CAF50"]
+                )
+                fig1.update_layout(bargap=0.1)
+                st.plotly_chart(fig1, use_container_width=True)
 
-            # 3. Опыт встречи с фейками
-            st.subheader("Experience with Fake Reviews")
-            fake_counts = df["faced_fake"].value_counts().reset_index()
-            fake_counts.columns = ["Experience", "Count"]
-            fig3 = px.pie(
-                fake_counts,
-                names="Experience",
-                values="Count",
-                title="Encounters with Fake Reviews"
-            )
-            st.plotly_chart(fig3, use_container_width=True)
+                # 2. Влияние на решение
+                st.subheader("🧭 Влияние отзывов на решение")
+                influence_counts = df["influence"].value_counts().reset_index()
+                influence_counts.columns = ["Влияние", "Количество"]
+                fig2 = px.bar(
+                    influence_counts,
+                    x="Влияние",
+                    y="Количество",
+                    title="Влияние анонимных отзывов",
+                    color="Влияние",
+                    color_discrete_sequence=["#2196F3", "#FF9800", "#9E9E9E", "#F44336"]
+                )
+                st.plotly_chart(fig2, use_container_width=True)
 
-            # 4. Отношение к модерации
-            st.subheader("Attitude to Moderation")
-            mod_counts = df["moderation"].value_counts().reset_index()
-            mod_counts.columns = ["Moderation", "Count"]
-            fig4 = px.bar(
-                mod_counts,
-                x="Moderation",
-                y="Count",
-                title="Need for Moderation",
-                color="Moderation"
-            )
-            st.plotly_chart(fig4, use_container_width=True)
+                # 3. Столкновение с фейками
+                st.subheader("⚠️ Столкновение с ложными отзывами")
+                fake_counts = df["faced_fake"].value_counts().reset_index()
+                fake_counts.columns = ["Сталкивались", "Количество"]
+                fig3 = px.pie(
+                    fake_counts,
+                    names="Сталкивались",
+                    values="Количество",
+                    title="Опыт встречи с фейками",
+                    color_discrete_sequence=px.colors.qualitative.Set3
+                )
+                st.plotly_chart(fig3, use_container_width=True)
 
-            # 5. Популярные платформы
-            st.subheader("Popular Platforms for Reviews")
-            platforms_list = df["platforms"].explode().value_counts().reset_index()
-            platforms_list.columns = ["Platform", "Count"]
-            fig5 = px.bar(
-                platforms_list,
-                x="Platform",
-                y="Count",
-                title="Top Platforms for Reading Reviews",
-                color="Platform"
-            )
-            st.plotly_chart(fig5, use_container_width=True)
+                # 4. Модерация
+                st.subheader("🛡️ Отношение к модерации")
+                mod_counts = df["moderation"].value_counts().reset_index()
+                mod_counts.columns = ["Модерация", "Количество"]
+                fig4 = px.bar(
+                    mod_counts,
+                    x="Модерация",
+                    y="Количество",
+                    title="Необходимость модерации",
+                    color="Модерация",
+                    color_discrete_sequence=["#4CAF50", "#8BC34A", "#FFC107", "#FF5722"]
+                )
+                st.plotly_chart(fig4, use_container_width=True)
 
-    except Exception as e:
-        st.error(f"Error loading data: {e}")
+                # 5. Популярные платформы
+                st.subheader("📱 Популярные платформы для отзывов")
+                platforms_list = df["platforms"].explode().value_counts().reset_index()
+                platforms_list.columns = ["Платформа", "Количество"]
+                fig5 = px.bar(
+                    platforms_list,
+                    x="Платформа",
+                    y="Количество",
+                    title="Платформы для чтения отзывов",
+                    color="Платформа",
+                    color_discrete_sequence=px.colors.qualitative.Pastel
+                )
+                st.plotly_chart(fig5, use_container_width=True)
+
+                # 6. Дополнительная статистика
+                st.subheader("📈 Дополнительная статистика")
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("Средний возраст", f"{df['age'].mean():.1f} лет")
+                with col2:
+                    st.metric("Средний уровень доверия", f"{df['trust'].mean():.1f} / 10")
+                with col3:
+                    st.metric("Всего ответов", len(df))
+
+        except Exception as e:
+            st.error(f"❌ Ошибка загрузки данных: {e}")
