@@ -11,5 +11,5 @@ env/
 .venv/
 .env
 .streamlit/
-.streamlit/secrets.toml
+secrets.toml
 .DS_Store

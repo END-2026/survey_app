@@ -5,17 +5,64 @@ import pandas as pd
 import plotly.express as px
 from datetime import datetime
 import os
+import json
 
-KEY_PATH = os.getenv("FIREBASE_KEY", "serviceAccountKey.json")
+# -------------------------------
+# 1. ИНИЦИАЛИЗАЦИЯ FIREBASE (с поддержкой secrets.toml)
+# -------------------------------
 
-if not firebase_admin._apps:
-    if not os.path.exists(KEY_PATH):
-        st.error("Error: serviceAccountKey.json not found.")
+def init_firebase():
+    """Инициализация Firebase с поддержкой secrets.toml и локального файла"""
+    
+    # Проверяем, есть ли уже инициализированное приложение
+    if firebase_admin._apps:
+        return firebase_admin.get_app()
+    
+    try:
+        # 1. Пробуем получить ключ из secrets.toml (Streamlit Cloud или локально)
+        if hasattr(st, 'secrets') and 'FIREBASE_KEY' in st.secrets:
+            st.info("🔑 Использую ключ из secrets.toml")
+            firebase_creds = st.secrets["FIREBASE_KEY"]
+            
+            # Если секрет - словарь
+            if isinstance(firebase_creds, dict):
+                cred = credentials.Certificate(firebase_creds)
+            # Если секрет - JSON строка
+            elif isinstance(firebase_creds, str):
+                cred_dict = json.loads(firebase_creds)
+                cred = credentials.Certificate(cred_dict)
+            else:
+                st.error("❌ Неподдерживаемый тип секрета")
+                st.stop()
+                
+        else:
+            # 2. Пробуем локальный файл (для разработки)
+            key_path = os.getenv("FIREBASE_KEY", "serviceAccountKey.json")
+            
+            if os.path.exists(key_path):
+                st.info(f"🔑 Использую локальный файл: {key_path}")
+                cred = credentials.Certificate(key_path)
+            else:
+                st.error("❌ Ошибка: Ключ Firebase не найден!")
+                st.error("💡 Для локальной разработки: поместите serviceAccountKey.json в корень проекта")
+                st.error("💡 Для Streamlit Cloud: добавьте секрет 'FIREBASE_KEY' в .streamlit/secrets.toml")
+                st.stop()
+        
+        firebase_admin.initialize_app(cred)
+        st.success("✅ Firebase успешно подключен!")
+        return firebase_admin.get_app()
+        
+    except Exception as e:
+        st.error(f"❌ Ошибка инициализации Firebase: {e}")
         st.stop()
-    cred = credentials.Certificate(KEY_PATH)
-    firebase_admin.initialize_app(cred)
 
+# Инициализация Firebase
+init_firebase()
 db = firestore.client()
+
+# -------------------------------
+# 2. НАСТРОЙКА СТРАНИЦЫ
+# -------------------------------
 
 st.set_page_config(
     page_title="Survey: Anonymous Reviews",
@@ -27,6 +74,10 @@ st.markdown(
     "**Topic:** Attitude towards anonymous reviews on the internet. "
     "Fill out the form. Data is saved to the cloud."
 )
+
+# -------------------------------
+# 3. ФОРМА ОПРОСА
+# -------------------------------
 
 with st.form("survey"):
     col1, col2 = st.columns(2)
@@ -59,6 +110,10 @@ with st.form("survey"):
 
     submit = st.form_submit_button("Submit")
 
+# -------------------------------
+# 4. СОХРАНЕНИЕ ДАННЫХ
+# -------------------------------
+
 if submit:
     if not platforms:
         st.warning("Please select at least one platform!")
@@ -80,6 +135,10 @@ if submit:
             st.balloons()
         except Exception as e:
             st.error(f"Error: {e}")
+
+# -------------------------------
+# 5. АНАЛИТИКА
+# -------------------------------
 
 st.markdown("---")
 
