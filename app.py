@@ -17,7 +17,6 @@ def init_firebase():
     try:
         # 1. Пробуем получить ключ из secrets.toml (Streamlit Cloud или локально)
         if hasattr(st, 'secrets') and 'FIREBASE_KEY' in st.secrets:
-            st.info("🔑 Использую ключ из secrets.toml")
             firebase_creds = st.secrets["FIREBASE_KEY"]
             
             # Если секрет - словарь
@@ -36,7 +35,6 @@ def init_firebase():
             key_path = os.getenv("FIREBASE_KEY", "serviceAccountKey.json")
             
             if os.path.exists(key_path):
-                st.info(f"🔑 Использую локальный файл: {key_path}")
                 cred = credentials.Certificate(key_path)
             else:
                 st.error("❌ Ошибка: Ключ Firebase не найден!")
@@ -45,7 +43,6 @@ def init_firebase():
                 st.stop()
         
         firebase_admin.initialize_app(cred)
-        st.success("✅ Firebase успешно подключен!")
         return firebase_admin.get_app()
         
     except Exception as e:
