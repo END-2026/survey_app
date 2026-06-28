@@ -1,0 +1,15 @@
+serviceAccountKey.json
+*.key
+*.pem
+.vs/
+.vscode/
+.idea/
+__pycache__/
+*.pyc
+venv/
+env/
+.venv/
+.env
+.streamlit/
+.DS_Store
+Thumbs.db
